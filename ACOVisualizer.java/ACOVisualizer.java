@@ -27,6 +27,7 @@ public class ACOVisualizer {
     static final double Q = 100.0;
     static final double ELITISMO = 2.0; // fator de reforço elitista
     static final int DELAY_MS = 300; // pausa entre iterações para animação
+    static final double SOLUCAO_OTIMA = 2579.0;
 
   
     static class Ponto {
@@ -208,21 +209,24 @@ public class ACOVisualizer {
 
               historico.add(melhorDistancia);
               
+              double gap = ((melhorDistancia - SOLUCAO_OTIMA) / SOLUCAO_OTIMA) * 100.0;
+              
              
-              System.out.print("Iteracao " + (it + 1) + " | Melhor rota: ");
-              if (melhorRotaGlobal != null) {
-                  for (int idx : melhorRotaGlobal) {
-                      System.out.print((idx + 1) + " ");
-                  }
-              }
-              System.out.printf("| Distancia = %.2f%n", melhorDistancia);          
+              System.out.print("Iteração " + (it + 1) + 
+                      " - Melhor distância: " + String.format("%.3f", melhorDistancia) + 
+                      " | GAP: " + String.format("%.2f", gap) + "% | Caminho: ");
+              			if (melhorRotaGlobal != null) {
+              			for (int c : melhorRotaGlobal) System.out.print((c + 1) + " ");
+              			}
+              			System.out.println();
 
                 // Atualiza painéis (thread-safe)
                 final List<Integer> bestRouteCopy = (melhorRotaGlobal == null) ? null : new ArrayList<>(melhorRotaGlobal);
                 final double bestDistCopy = melhorDistancia;
+                final double gapCopy = gap;
                 final int iter = it + 1;
                 SwingUtilities.invokeLater(() -> {
-                    graphPanel.setState(pontos, bestRouteCopy, bestDistCopy, iter, N_ITERACOES);
+                    graphPanel.setState(pontos, bestRouteCopy, bestDistCopy, gapCopy, iter, N_ITERACOES);
                     chartPanel.setHistory(historico);
                 });
 
@@ -242,6 +246,7 @@ public class ACOVisualizer {
         List<Ponto> pontos;
         List<Integer> bestRoute; // lista de índices
         double bestDist;
+        double bestGap;
         int iteracao = 0, totalIter = 0;
 
         GraphPanel() {
@@ -249,10 +254,11 @@ public class ACOVisualizer {
             setBackground(Color.WHITE);
         }
 
-        public void setState(List<Ponto> pontos, List<Integer> bestRoute, double bestDist, int iter, int totalIter) {
+        public void setState(List<Ponto> pontos, List<Integer> bestRoute, double bestDist, double bestGap, int iter, int totalIter) {
             this.pontos = pontos;
             this.bestRoute = bestRoute;
             this.bestDist = bestDist;
+            this.bestGap = bestGap;
             this.iteracao = iter;
             this.totalIter = totalIter;
             repaint();
@@ -332,9 +338,15 @@ public class ACOVisualizer {
             }
 
             // legenda / infos
-            g2.setColor(Color.BLACK);
-            g2.drawString("Iteração: " + iteracao + " / " + totalIter, 10, 15);
-            if (bestRoute != null) g2.drawString(String.format("Melhor distância: %.3f", bestDist), 10, 30);
+            //g2.setColor(Color.BLACK);
+            //g2.drawString("Iteração: " + iteracao + " / " + totalIter, 10, 15);
+            //if (bestRoute != null) g2.drawString(String.format("Melhor distância: %.2f", bestDist), 10, 30);
+              g2.setColor(Color.BLACK);
+              g2.drawString("Iteração: " + iteracao + " / " + totalIter, 10, 15);
+              if (bestRoute != null) {
+                g2.drawString(String.format("Melhor distância: %.3f", bestDist), 10, 30);
+                g2.drawString(String.format("GAP: %.2f%%", bestGap), 10, 45);
+            }
         }
     }
 

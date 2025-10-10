@@ -24,10 +24,12 @@ public class ACOVisualizer {
     static final double ALFA = 1.0;     // importância do feromônio
     static final double BETA = 2.0;     // importância da heurística 
     static final double EVAPORACAO = 0.9; // (1 - p) em algumas formulas aqui usamos "rho" como taxa de evaporação
-    static final double Q = 100.0;
+    static final double Q = 100.0; // refoco do melhor caminho
     static final double ELITISMO = 2.0; // fator de reforço elitista
     static final int DELAY_MS = 300; // pausa entre iterações para animação
-    static final double SOLUCAO_OTIMA = 2579.0;
+    static final double SOLUCAO_OTIMA = 2579.0; // A280 
+    static final double LIMITE_MELHORA = 0.001; // 0,1% porcentagem de melhora nas iteracoes
+    static final int LIMITE_ITER_SEM_MELHORA = 10; // limite de iteraçao sem melhora 
 
   
     static class Ponto {
@@ -39,6 +41,7 @@ public class ACOVisualizer {
         int atual;
         ArrayList<Integer> rota;
         boolean[] visitado;
+        
 
         Formiga(int inicio, int nPontos) {
             this.atual = inicio;
@@ -53,11 +56,12 @@ public class ACOVisualizer {
             this.rota.add(proximo);
             this.visitado[proximo] = true;
         }
-
+        
         boolean completouTour(int n) {
             return this.rota.size() == n;
         }
     }
+  
 
     // -----------------------
     // Classe principal do ACO 
@@ -138,7 +142,15 @@ public class ACOVisualizer {
         List<Double> runAndReport(GraphPanel graphPanel, ChartPanel chartPanel) {
             double melhorDistancia = Double.POSITIVE_INFINITY;
             List<Integer> melhorRotaGlobal = null;
-            List<Double> historico = new ArrayList<>();
+            List<Double> historico = new ArrayList<>(); 
+            
+            // parada adaptativa 
+            
+            double ultimaMelhorDistancia = Double.POSITIVE_INFINITY;
+            int semMelhoraCount = 0;
+            final double LIMITE_MELHORA = 0.001; // 0.1% de melhora mínima
+            final int MAX_SEM_MELHORA = 15;       // parar após iterações sem melhora
+            boolean paradaAntecipada = false;
 
             for (int it = 0; it < N_ITERACOES; ++it) {
                 // cria formigas e faz cada formiga construir rota
@@ -162,8 +174,6 @@ public class ACOVisualizer {
                     if (d < melhorDistancia) {
                         melhorDistancia = d;
                         melhorRotaGlobal = new ArrayList<>(ant.rota);
-                        
-                        
                     }
                 }
                 
@@ -213,7 +223,7 @@ public class ACOVisualizer {
               
              
               System.out.print("Iteração " + (it + 1) + 
-                      " - Melhor distância: " + String.format("%.3f", melhorDistancia) + 
+                      " - Melhor distância: " + String.format("%.1f", melhorDistancia) + 
                       " | GAP: " + String.format("%.2f", gap) + "% | Caminho: ");
               			if (melhorRotaGlobal != null) {
               			for (int c : melhorRotaGlobal) System.out.print((c + 1) + " ");
@@ -229,11 +239,36 @@ public class ACOVisualizer {
                     graphPanel.setState(pontos, bestRouteCopy, bestDistCopy, gapCopy, iter, N_ITERACOES);
                     chartPanel.setHistory(historico);
                 });
+                
+                if (it > 0) {
+                    double melhoraRelativa = Math.abs((ultimaMelhorDistancia - melhorDistancia) / ultimaMelhorDistancia);
+                    if (melhoraRelativa < LIMITE_MELHORA) {
+                        semMelhoraCount++;
+                    } else {
+                        semMelhoraCount = 0;
+                    }
+
+                    if (semMelhoraCount >= MAX_SEM_MELHORA) {
+                        System.out.println("\n>>> Parada antecipada: melhora abaixo de " + (LIMITE_MELHORA * 100)
+                        		+ "% por " + MAX_SEM_MELHORA + " iteracoes consecutivas.");
+                        break;
+                    }
+                }
+
+                ultimaMelhorDistancia = melhorDistancia;
 
                 // pausa para animação
                 try { Thread.sleep(DELAY_MS); } catch (InterruptedException ignored) {}
             }
-
+            if (paradaAntecipada) {
+                SwingUtilities.invokeLater(() -> {
+                    JOptionPane.showMessageDialog(null,
+                        String.format("Parada antecipada:\nMelhora inferior a %.2f%% por %d iterações consecutivas.",
+                                LIMITE_MELHORA * 100, MAX_SEM_MELHORA),
+                        "ACO - Convergência Detectada",
+                        JOptionPane.INFORMATION_MESSAGE);
+                });
+            }
             return historico;
         }
     }
@@ -344,7 +379,7 @@ public class ACOVisualizer {
               g2.setColor(Color.BLACK);
               g2.drawString("Iteração: " + iteracao + " / " + totalIter, 10, 15);
               if (bestRoute != null) {
-                g2.drawString(String.format("Melhor distância: %.3f", bestDist), 10, 30);
+                g2.drawString(String.format("Melhor distância: %.2f", bestDist), 10, 30);
                 g2.drawString(String.format("GAP: %.2f%%", bestGap), 10, 45);
             }
         }
@@ -506,3 +541,4 @@ public class ACOVisualizer {
         });
     }
 }
+    
